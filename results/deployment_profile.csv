@@ -1,0 +1,9 @@
+dataset,model,params,fp32_weight_kb,int8_weight_kb,fp32_onnx_kb,torch_cpu_ms_single,onnx_cpu_ms_single,onnx_mc50_ms_est,macs_million,cortex_m7_ms_single_est,cortex_m7_mc50_ms_est
+ur3,Proposed (full),81106,316.82,79.205,326.246,0.554,0.066,3.294,0.792,1.651,82.532
+ur3,Proposed-Lite,24442,95.477,23.869,103.588,0.697,0.056,2.816,0.235,0.489,24.467
+cmapss_fd001,Proposed (full),33602,131.258,32.814,139.378,0.673,0.09,4.479,0.969,2.019,100.955
+cmapss_fd001,Proposed-Lite,9650,37.695,9.424,45.141,0.85,0.057,2.855,0.27,0.562,28.078
+cmapss_fd003,Proposed (full),33602,131.258,32.814,139.378,0.643,0.079,3.939,0.969,2.019,100.955
+cmapss_fd003,Proposed-Lite,9650,37.695,9.424,45.141,0.775,0.057,2.848,0.27,0.562,28.078
+xjtu,Proposed (full),75730,295.82,73.955,305.252,0.782,0.091,4.527,1.476,3.076,153.782
+xjtu,Proposed-Lite,21754,84.977,21.244,93.095,0.799,0.062,3.096,0.416,0.866,43.292

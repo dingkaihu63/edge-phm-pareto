@@ -64,3 +64,7 @@ Please cite the associated manuscript once it is published. A BibTeX entry will 
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.
+
+## Hardware-Free Validation
+
+See [docs/HARDWARE_FREE_VALIDATION.md](docs/HARDWARE_FREE_VALIDATION.md) for the evidence ladder and reproduction commands.
