@@ -1,0 +1,40 @@
+{
+  "seeds": 10,
+  "device": "NVIDIA GeForce RTX 5060 Laptop GPU",
+  "torch_version": "2.14.0.dev20260711+cu130",
+  "cuda_version": "13.0",
+  "ds_config": {
+    "ur3": {
+      "units1": 96,
+      "units2": 48,
+      "dropout": 0.1,
+      "lr": 0.001,
+      "batch": 64,
+      "balanced": false
+    },
+    "cmapss_fd001": {
+      "units1": 64,
+      "units2": 32,
+      "dropout": 0.15,
+      "lr": 0.0005,
+      "batch": 128,
+      "balanced": false
+    },
+    "cmapss_fd003": {
+      "units1": 64,
+      "units2": 32,
+      "dropout": 0.15,
+      "lr": 0.0005,
+      "batch": 128,
+      "balanced": false
+    },
+    "xjtu": {
+      "units1": 96,
+      "units2": 48,
+      "dropout": 0.1,
+      "lr": 0.001,
+      "batch": 64,
+      "balanced": true
+    }
+  }
+}

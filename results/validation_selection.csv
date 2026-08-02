@@ -1,0 +1,5 @@
+dataset,selected,sel_val_f2,sel_test_f2,sel_auc,sel_pr,lstm_test_f2,lstm_auc,lstm_pr
+ur3,w/o_attention,0.806,0.749,0.867,0.805,0.769,0.874,0.799
+cmapss_fd001,w/o_attention,0.945,0.807,0.996,0.918,0.816,0.997,0.923
+cmapss_fd003,w/o_attention,0.96,0.918,0.999,0.963,0.92,0.999,0.956
+xjtu,w/o_mc_dropout,0.678,0.606,0.673,0.55,0.582,0.72,0.318
