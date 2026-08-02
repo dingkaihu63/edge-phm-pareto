@@ -61,3 +61,6 @@ python make_figures_torch.py
 ## Citation
 
 Please cite the associated manuscript once it is published. A BibTeX entry will be added here at that time.
+## License
+
+MIT License. See [LICENSE](LICENSE) for details.
