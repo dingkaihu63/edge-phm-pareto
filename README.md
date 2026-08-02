@@ -68,3 +68,9 @@ MIT License. See [LICENSE](LICENSE) for details.
 ## Hardware-Free Validation
 
 See [docs/HARDWARE_FREE_VALIDATION.md](docs/HARDWARE_FREE_VALIDATION.md) for the evidence ladder and reproduction commands.
+
+## Version
+
+- Current release tag: `v1.0.0`
+- Zenodo DOI: pending (will be added after archive creation)
+- Citation metadata: [CITATION.cff](CITATION.cff)
