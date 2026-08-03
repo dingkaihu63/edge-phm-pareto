@@ -22,14 +22,14 @@ DATASET_LABELS = {
 MODEL_LABELS = {
     "full": "Full",
     "proposed_lite": "Lite",
-    "w/o_attention": "No-attn",
+    "w/o_attention": "Terminal",
     "lstm": "LSTM",
     "bilstm": "BiLSTM",
     "gru": "GRU",
     "transformer": "Transformer",
     "tcn": "TCN",
-    "patchtst": "PatchTST",
-    "timesnet": "TimesNet",
+    "patchtst": "PatchTST-like",
+    "timesnet": "TimesNet-like",
     "matched_lstm": "mLSTM",
     "matched_gru": "mGRU",
     "matched_tcn": "mTCN",
@@ -219,7 +219,7 @@ def make_figure() -> None:
     ax.legend(
         loc="upper center",
         bbox_to_anchor=(0.5, -0.17),
-        fontsize=4.8,
+        fontsize=5.2,
         ncol=4,
         columnspacing=0.7,
         handletextpad=0.35,
@@ -234,8 +234,8 @@ def make_figure() -> None:
     ax.axvline(0, color="#333333", lw=0.8)
     ax.set_yticks(y, [DATASET_LABELS[name] for name in attention["dataset"]])
     ax.invert_yaxis()
-    ax.set_xlabel(r"Mean F2 difference (attention - no attention)")
-    ax.set_title("Full-size attention contrast")
+    ax.set_xlabel(r"Mean F2 difference (learned pooling - terminal state)")
+    ax.set_title("Full-size aggregation contrast")
     for yi, v in zip(y, attention["delta_f2"]):
         ax.text(v + (0.002 if v >= 0 else -0.002), yi, f"{v:+.3f}", va="center",
                 ha="left" if v >= 0 else "right", fontsize=6)

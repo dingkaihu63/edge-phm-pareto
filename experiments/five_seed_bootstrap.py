@@ -1,9 +1,9 @@
-"""Hierarchical paired bootstrap over training seeds and physical test units.
+"""Crossed paired bootstrap over training seeds and physical test units.
 
 The analysis treats engines, bearings, or production cycles as the independent
-test units. Each bootstrap replicate resamples both the five final training
-seeds and the physical units within each sampled seed. This propagates model-fit
-and test-unit variability without treating overlapping windows as independent.
+test units. Each bootstrap replicate resamples the five final training seeds and
+one common set of physical units. The common unit sample preserves the crossed
+design because every training seed predicts the same held-out physical units.
 """
 
 from __future__ import annotations
@@ -135,12 +135,13 @@ def predict_seed(ds: str, seed: int, data, units: np.ndarray):
     return {"units": unit_data, "thresholds": thresholds}
 
 
-def resample_seed(seed_record, rng: np.random.RandomState):
+def resample_seed(seed_record, unit_indices: np.ndarray):
     unit_data = seed_record["units"]
-    indices = rng.randint(0, len(unit_data), size=len(unit_data))
-    y = np.concatenate([unit_data[index]["y"] for index in indices])
+    y = np.concatenate([unit_data[index]["y"] for index in unit_indices])
     probabilities = {
-        model: np.concatenate([unit_data[index]["p"][model] for index in indices])
+        model: np.concatenate(
+            [unit_data[index]["p"][model] for index in unit_indices]
+        )
         for model in MODELS
     }
     return {
@@ -168,7 +169,13 @@ def run_dataset(ds: str, rng_seed: int) -> pd.DataFrame:
     accepted = 0
     while accepted < N_BOOT:
         sampled_seeds = rng.randint(0, len(SEEDS), size=len(SEEDS))
-        sampled_values = [resample_seed(seed_records[index], rng) for index in sampled_seeds]
+        sampled_units = rng.randint(
+            0, len(seed_records[0]["units"]), size=len(seed_records[0]["units"])
+        )
+        sampled_values = [
+            resample_seed(seed_records[index], sampled_units)
+            for index in sampled_seeds
+        ]
         if any(
             values[model] is None for values in sampled_values for model in MODELS
         ):
@@ -202,6 +209,7 @@ def run_dataset(ds: str, rng_seed: int) -> pd.DataFrame:
                 "n_bootstrap": accepted,
                 "n_seeds": len(SEEDS),
                 "n_units": len(np.unique(units)),
+                "resampling_design": "crossed_seed_unit",
             }
         )
     return pd.DataFrame(rows)
@@ -213,7 +221,7 @@ def main() -> None:
         for index, dataset in enumerate(DATASETS)
     ]
     output = pd.concat(frames, ignore_index=True)
-    path = RESULTS / "unit_bootstrap_hierarchical.csv"
+    path = RESULTS / "unit_bootstrap_crossed.csv"
     output.to_csv(path, index=False)
     print(path)
     print(output[output["metric"] == "f2"].to_string(index=False))

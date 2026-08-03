@@ -24,7 +24,7 @@ MODEL_LABELS = {
     "proposed_lite": "Lite",
     "lstm": "LSTM",
     "tcn": "TCN",
-    "timesnet": "TimesNet",
+    "timesnet": "TimesNet-like",
     "matched_lstm": "mLSTM",
     "matched_gru": "mGRU",
     "matched_tcn": "mTCN",
@@ -69,7 +69,7 @@ def _save(fig, name: str) -> None:
 
 
 def fig_unit_bootstrap() -> None:
-    df = pd.read_csv(RESULTS / "unit_bootstrap_hierarchical.csv")
+    df = pd.read_csv(RESULTS / "unit_bootstrap_crossed.csv")
     df = df[df["metric"] == "f2"]
     fig, axes = plt.subplots(2, 2, figsize=(7.2, 5.15), sharex=False)
     for ax, ds in zip(axes.ravel(), ["cmapss_fd001", "cmapss_fd003", "xjtu", "ur3"]):
@@ -109,7 +109,7 @@ def fig_unit_bootstrap() -> None:
         ax.set_title(DATASET_LABELS[ds])
         ax.grid(axis="x", color="#E4E6E8", lw=0.6)
     fig.suptitle(
-        "Hierarchical paired bootstrap over training seeds and physical units",
+        "Crossed paired bootstrap over training seeds and physical units",
         fontsize=9,
     )
     fig.tight_layout(rect=[0, 0, 1, 0.96])
@@ -171,32 +171,132 @@ def fig_streaming_alert() -> None:
 
 
 def fig_risk_coverage() -> None:
-    df = pd.read_csv(RESULTS / "risk_curves.csv")
+    df = pd.read_csv(RESULTS / "risk_curves_5seeds.csv")
     fig, axes = plt.subplots(2, 2, figsize=(7.2, 5.4), sharey=False)
-    styles = {"MC": "-", "pseudo_abs": "--", "entropy": ":"}
+    styles = {"mc_dropout": "-", "confidence": "--", "seed_ensemble": "-."}
+    signal_labels = {
+        "mc_dropout": "MC dropout",
+        "confidence": "confidence",
+        "seed_ensemble": "seed ensemble",
+    }
     for ax, ds in zip(axes.ravel(), ["cmapss_fd001", "cmapss_fd003", "xjtu", "ur3"]):
         part = df[df["dataset"] == ds]
         for model in ["full", "proposed_lite"]:
-            for unc, linestyle in styles.items():
-                rows = part[(part["model"] == model) & (part["uncertainty"] == unc)].sort_values("actual_coverage")
+            seed_part = part[
+                (part["model"] == model) & (part["replicate"] == "seed")
+            ]
+            for unc in ["mc_dropout", "confidence"]:
+                rows = (
+                    seed_part[seed_part["uncertainty"] == unc]
+                    .groupby("target_coverage", as_index=False)
+                    .agg(
+                        actual_coverage=("actual_coverage", "mean"),
+                        risk=("risk", "mean"),
+                        risk_sd=("risk", "std"),
+                    )
+                    .sort_values("actual_coverage")
+                )
                 ax.plot(
                     rows["actual_coverage"],
                     rows["risk"],
                     color=MODEL_COLORS[model],
-                    ls=linestyle,
+                    ls=styles[unc],
                     lw=1.15,
-                    label=f"{MODEL_LABELS[model]}: {unc}" if ds == "cmapss_fd001" else None,
+                    label=(
+                        f"{MODEL_LABELS[model]}: {signal_labels[unc]}"
+                        if ds == "cmapss_fd001"
+                        else None
+                    ),
                 )
-        ax.set_yscale("log")
+                if unc == "mc_dropout":
+                    lower = np.maximum(
+                        0.0,
+                        rows["risk"].to_numpy() - rows["risk_sd"].fillna(0).to_numpy(),
+                    )
+                    upper = rows["risk"].to_numpy() + rows["risk_sd"].fillna(0).to_numpy()
+                    ax.fill_between(
+                        rows["actual_coverage"],
+                        lower,
+                        upper,
+                        color=MODEL_COLORS[model],
+                        alpha=0.09,
+                        linewidth=0,
+                    )
+            ensemble = part[
+                (part["model"] == model)
+                & (part["uncertainty"] == "seed_ensemble")
+            ].sort_values("actual_coverage")
+            ax.plot(
+                ensemble["actual_coverage"],
+                ensemble["risk"],
+                color=MODEL_COLORS[model],
+                ls=styles["seed_ensemble"],
+                lw=1.15,
+                label=(
+                    f"{MODEL_LABELS[model]}: {signal_labels['seed_ensemble']}"
+                    if ds == "cmapss_fd001"
+                    else None
+                ),
+            )
+        ax.set_yscale("symlog", linthresh=1e-3, linscale=0.8)
         ax.set_title(DATASET_LABELS[ds])
         ax.set_xlabel("Coverage")
         ax.grid(which="both", color="#E4E6E8", lw=0.5)
     for ax in axes[:, 0]:
         ax.set_ylabel("Error rate (risk)")
     axes[0, 0].legend(fontsize=5.2, ncol=2)
-    fig.suptitle("Risk-coverage curves at K=50 MC samples", fontsize=9)
+    fig.suptitle("Five-seed risk-coverage with seed-ensemble reference", fontsize=9)
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     _save(fig, "fig_risk_coverage")
+
+
+def fig_pooling_control() -> None:
+    df = pd.read_csv(RESULTS / "pooling_control_5seeds.csv")
+    fig, axes = plt.subplots(2, 2, figsize=(7.2, 4.8), sharey=True)
+    comparisons = [
+        ("learned_attention", "uniform_mean", "Learned attention - mean", "#B64A3A"),
+        ("terminal_state", "uniform_mean", "Terminal state - mean", "#277DA1"),
+    ]
+    for ax, ds in zip(axes.ravel(), ["cmapss_fd001", "cmapss_fd003", "xjtu", "ur3"]):
+        pivot = df[df["dataset"] == ds].pivot(
+            index="seed", columns="pooling", values="f2"
+        )
+        for x, (left, right, label, color) in enumerate(comparisons):
+            values = (pivot[left] - pivot[right]).to_numpy(dtype=float)
+            offsets = np.linspace(-0.06, 0.06, len(values))
+            ax.scatter(
+                np.full(len(values), x) + offsets,
+                values,
+                s=13,
+                facecolor="white",
+                edgecolor=color,
+                linewidth=0.8,
+                zorder=3,
+            )
+            ax.errorbar(
+                x,
+                values.mean(),
+                yerr=values.std(ddof=1),
+                fmt="o",
+                color=color,
+                ms=4,
+                capsize=3,
+                elinewidth=1.0,
+                zorder=4,
+            )
+        ax.axhline(0, color="#343A40", lw=0.8, ls=":")
+        ax.set_xticks([0, 1])
+        ax.set_xticklabels([comparison[2] for comparison in comparisons], rotation=12)
+        ax.set_title(DATASET_LABELS[ds])
+        ax.grid(axis="y", color="#E4E6E8", lw=0.6)
+    for ax in axes[:, 0]:
+        ax.set_ylabel("Paired F2 difference")
+    fig.suptitle(
+        "Pooling control across five training seeds",
+        fontsize=9,
+    )
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
+    _save(fig, "fig_pooling_control")
 
 
 def fig_attention_faithfulness() -> None:
@@ -248,6 +348,7 @@ def main() -> None:
     fig_unit_bootstrap()
     fig_streaming_alert()
     fig_risk_coverage()
+    fig_pooling_control()
     fig_attention_faithfulness()
     print("evidence figures written")
 

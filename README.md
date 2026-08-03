@@ -7,10 +7,11 @@ The repository contains the PyTorch training, evaluation, uncertainty, temporal-
 ## Scope
 
 - Ten independently trained seeds for the main model and baseline comparisons
-- Five-seed hierarchical paired bootstrap over training seeds and physical test units
-- Five-seed Lite-budget 2 x 2 analysis of attention and dropout-enabled MC inference
+- Five-seed crossed paired bootstrap over training seeds and physical test units
+- Five-seed Lite-budget 2 x 2 analysis of learned pooling versus terminal-state aggregation and dropout-enabled MC inference
+- Five-seed control separating learned attention, uniform mean pooling, and terminal-state aggregation
 - Episode-level alert outcomes that distinguish on-time, premature, missed, and false alerts
-- Attention-deletion and uncertainty risk-coverage analyses
+- Five-seed attention-deletion, uncertainty error-ranking, and risk-coverage analyses
 - ONNX, QEMU ARM64, parameter, storage, and MAC-count deployment references
 
 The repository does not claim global accuracy-resource Pareto optimality, causal explanation, physical controller deployment, or a validated maintenance-cost advantage.
@@ -57,6 +58,7 @@ Run commands from the repository root. The complete 10-seed training run is comp
 ```powershell
 python experiments/run_experiments_torch.py --seeds 10 --datasets ur3,cmapss_fd001,cmapss_fd003,xjtu
 python experiments/factorial_lite_analysis.py
+python experiments/pooling_control_analysis.py
 python experiments/five_seed_bootstrap.py
 python experiments/episode_alert_analysis.py
 python experiments/attention_faithfulness.py
@@ -66,7 +68,9 @@ python experiments/make_evidence_figures.py
 python -m unittest discover -s tests -v
 ```
 
-The analysis scripts require the final seed 1-5 checkpoints and fail explicitly when a required checkpoint is missing. They do not silently retrain models, except `factorial_lite_analysis.py`, which trains the previously missing no-attention/no-MC cells.
+The analysis scripts require the final seed 1-5 checkpoints and fail explicitly when a required checkpoint is missing. `factorial_lite_analysis.py` trains missing terminal-state/no-MC cells, and `pooling_control_analysis.py` trains missing uniform-mean checkpoints. Other analysis scripts do not silently retrain models.
+
+Key generated outputs include `results/unit_bootstrap_crossed.csv`, `results/pooling_control_5seeds.csv`, `results/pooling_control_effects.csv`, `results/risk_curves_5seeds.csv`, and `results/uncertainty_ranking_5seeds_summary.csv`. The compact `PatchTST-like` and `TimesNet-like` baselines are matched-budget adaptations defined in `experiments/sota_baselines.py`; they are not official architecture or training-recipe reproductions.
 
 ## Repository Layout
 

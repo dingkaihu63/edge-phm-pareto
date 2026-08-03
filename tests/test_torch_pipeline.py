@@ -3,6 +3,7 @@ import sys
 import unittest
 
 import numpy as np
+import torch
 
 
 EXPERIMENTS = Path(__file__).resolve().parents[1] / "experiments"
@@ -25,6 +26,20 @@ class DropoutModeTest(unittest.TestCase):
         np.testing.assert_allclose(deterministic_a, deterministic_c, rtol=0, atol=0)
         self.assertTrue(np.any(mc_std > 0))
         self.assertEqual(mc_mean.shape, deterministic_a.shape)
+
+    def test_mean_pooling_uses_uniform_temporal_weights(self) -> None:
+        model = build_model(6, 3, attention="mean", seed=11)
+        x = torch.from_numpy(
+            np.random.default_rng(11).normal(size=(4, 6, 3)).astype(np.float32)
+        ).to(next(model.parameters()).device)
+        with torch.no_grad():
+            _, alpha = model.forward_attention(x)
+        np.testing.assert_allclose(
+            alpha.cpu().numpy(),
+            np.full((4, 6, 1), 1.0 / 6.0),
+            rtol=0,
+            atol=1e-7,
+        )
 
 
 if __name__ == "__main__":

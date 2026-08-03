@@ -69,7 +69,7 @@ class ProposedModel(nn.Module):
                 alpha = alpha / (alpha.sum(dim=1, keepdim=True) + 1e-8)
         elif self.attention == "softmax":
             alpha = F.softmax(score, dim=1)
-        elif self.attention == "none":
+        elif self.attention in {"mean", "none"}:
             alpha = torch.ones_like(score) / score.shape[1]
         else:
             raise ValueError(self.attention)
