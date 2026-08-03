@@ -1,4 +1,4 @@
-"""Capability-aware resource/performance figure from final results."""
+"""Resource and component comparisons from the final result tables."""
 
 from __future__ import annotations
 
@@ -151,11 +151,9 @@ def make_figure() -> None:
     signal = "#1F6F8B"
     positive = "#2D7D46"
 
-    fig, axes = plt.subplots(1, 3, figsize=(7.2, 2.75), gridspec_kw={"wspace": 0.42})
+    fig, axes = plt.subplots(1, 3, figsize=(7.2, 2.95), gridspec_kw={"wspace": 0.42})
     ax = axes[0]
     cmapss["params"] = cmapss["params"].clip(lower=1.0)
-    front = _pareto(cmapss[cmapss["mc_capable"]])
-    ax.plot(front["params"], front["f2_mean"], color=accent, lw=1.3, zorder=1)
     for _, row in cmapss.iterrows():
         marker = "o" if row["mc_capable"] else "s"
         color = accent if row["mc_capable"] else neutral
@@ -177,7 +175,7 @@ def make_figure() -> None:
     ax.set_xscale("log")
     ax.set_xlabel("Parameters")
     ax.set_ylabel("Mean F2 (FD001/FD003)")
-    ax.set_title("C-MAPSS: capability-aware view")
+    ax.set_title("C-MAPSS parameter count vs F2")
     ax.grid(axis="y", color="#E4E6E8", lw=0.6)
 
     ax = axes[1]
@@ -186,12 +184,30 @@ def make_figure() -> None:
     labels = ["Lite", "mLSTM", "mGRU", "mTCN"]
     x = np.arange(len(datasets))
     width = 0.19
+    hatches = [None, "//", "\\\\", None]
     for j, model in enumerate(order):
         vals = [
             matched_plot[(matched_plot["dataset"] == ds) & (matched_plot["model"] == model)]["f2_mean"].iloc[0]
             for ds in datasets
         ]
-        bars = ax.bar(x + (j - 1.5) * width, vals, width, color=[accent, neutral, neutral, signal][j], alpha=0.9)
+        errors = [
+            matched_plot[(matched_plot["dataset"] == ds) & (matched_plot["model"] == model)]["f2_sd"].iloc[0]
+            for ds in datasets
+        ]
+        bars = ax.bar(
+            x + (j - 1.5) * width,
+            vals,
+            width,
+            yerr=errors,
+            capsize=1.5,
+            color=[accent, "#9AA1A9", neutral, signal][j],
+            edgecolor="white",
+            linewidth=0.3,
+            hatch=hatches[j],
+            alpha=0.9,
+            label=labels[j],
+            error_kw={"elinewidth": 0.7, "capthick": 0.7},
+        )
         if model == "proposed_lite":
             for bar, v in zip(bars, vals):
                 ax.text(bar.get_x() + bar.get_width() / 2, v + 0.008, f"{v:.2f}", ha="center", fontsize=5.2)
@@ -200,6 +216,14 @@ def make_figure() -> None:
     ax.set_title("Matched-budget comparison")
     ax.set_ylim(0.45, 0.95)
     ax.grid(axis="y", color="#E4E6E8", lw=0.6)
+    ax.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.17),
+        fontsize=4.8,
+        ncol=4,
+        columnspacing=0.7,
+        handletextpad=0.35,
+    )
 
     ax = axes[2]
     order = ["cmapss_fd001", "cmapss_fd003", "ur3", "xjtu"]
@@ -210,8 +234,8 @@ def make_figure() -> None:
     ax.axvline(0, color="#333333", lw=0.8)
     ax.set_yticks(y, [DATASET_LABELS[name] for name in attention["dataset"]])
     ax.invert_yaxis()
-    ax.set_xlabel(r"Attention effect, $\Delta$F2 (full - no attention)")
-    ax.set_title("Interpretability has a regime cost")
+    ax.set_xlabel(r"Mean F2 difference (attention - no attention)")
+    ax.set_title("Full-size attention contrast")
     for yi, v in zip(y, attention["delta_f2"]):
         ax.text(v + (0.002 if v >= 0 else -0.002), yi, f"{v:+.3f}", va="center",
                 ha="left" if v >= 0 else "right", fontsize=6)
@@ -221,7 +245,7 @@ def make_figure() -> None:
     for label, axx in zip("abc", axes):
         axx.text(-0.16, 1.08, label, transform=axx.transAxes, fontweight="bold", fontsize=8)
     FIGURES.mkdir(parents=True, exist_ok=True)
-    fig.subplots_adjust(left=0.075, right=0.99, bottom=0.2, top=0.86)
+    fig.subplots_adjust(left=0.075, right=0.99, bottom=0.27, top=0.86)
     fig.savefig(FIGURES / "fig_scope_pareto.pdf", bbox_inches="tight")
     fig.savefig(FIGURES / "fig_scope_pareto.svg", bbox_inches="tight")
     fig.savefig(FIGURES / "fig_scope_pareto.png", dpi=600, bbox_inches="tight")
@@ -231,4 +255,4 @@ def make_figure() -> None:
 
 if __name__ == "__main__":
     make_figure()
-    print("capability-aware scope figure written")
+    print("resource comparison figure written")

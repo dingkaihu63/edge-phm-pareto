@@ -1,93 +1,159 @@
-"""Clean architecture diagram with auto-wrapped labels."""
+"""Draw the configurable recurrent framework without version-specific results."""
 
+from __future__ import annotations
+
+from pathlib import Path
 import textwrap
 
-import matplotlib
-matplotlib.use("Agg")
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch
 
+ROOT = Path(__file__).resolve().parents[1]
+OUTPUT = ROOT / "figures" / "fig_architecture"
 
-def wrap_text(text, width=18):
-    return "\n".join(textwrap.fill(part, width=width) for part in text.split("\n"))
+mpl.rcParams.update(
+    {
+        "font.family": "sans-serif",
+        "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans", "sans-serif"],
+        "font.size": 7,
+        "pdf.fonttype": 42,
+        "svg.fonttype": "none",
+    }
+)
 
 
-fig, ax = plt.subplots(figsize=(14, 7.4))
-ax.set_xlim(0, 14)
-ax.set_ylim(0, 7.8)
+def wrapped(text: str, width: int = 20) -> str:
+    return "\n".join(textwrap.fill(line, width=width) for line in text.split("\n"))
+
+
+fig, ax = plt.subplots(figsize=(7.2, 3.85))
+ax.set_xlim(0, 14.4)
+ax.set_ylim(0, 7.6)
 ax.axis("off")
 
 
-def box(x, y, w, h, text, fc="#eef3fb", ec="#1f4e79", fs=11, bold=False):
-    b = FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.08,rounding_size=0.14",
-                       linewidth=1.6, edgecolor=ec, facecolor=fc)
-    ax.add_patch(b)
-    ax.text(x + w/2, y + h/2, wrap_text(text), ha="center", va="center",
-            fontsize=fs, fontweight="bold" if bold else "normal", color="#17202a")
+def box(
+    x,
+    y,
+    width,
+    height,
+    text,
+    face,
+    edge,
+    bold=False,
+    fontsize=7,
+    wrap_width=20,
+):
+    patch = FancyBboxPatch(
+        (x, y),
+        width,
+        height,
+        boxstyle="round,pad=0.04,rounding_size=0.09",
+        linewidth=1.0,
+        edgecolor=edge,
+        facecolor=face,
+    )
+    ax.add_patch(patch)
+    ax.text(
+        x + width / 2,
+        y + height / 2,
+        wrapped(text, width=wrap_width),
+        ha="center",
+        va="center",
+        fontsize=fontsize,
+        fontweight="bold" if bold else "normal",
+        color="#20262E",
+    )
 
 
-def line(x1, y1, x2, y2, color="#34495e", lw=1.8):
-    ax.plot([x1, x2], [y1, y2], color=color, lw=lw, zorder=2)
+def arrow(x1, y1, x2, y2, style="-"):
+    ax.annotate(
+        "",
+        xy=(x2, y2),
+        xytext=(x1, y1),
+        arrowprops={"arrowstyle": "-|>", "color": "#46515C", "lw": 0.95, "linestyle": style},
+    )
 
 
-def arrow(x1, y1, x2, y2, color="#34495e", lw=1.8):
-    ax.annotate("", xy=(x2, y2), xytext=(x1, y1),
-                arrowprops=dict(arrowstyle="-|>", color=color, lw=lw), zorder=3)
+def line(x1, y1, x2, y2, style="-"):
+    ax.plot([x1, x2], [y1, y2], color="#46515C", lw=0.95, ls=style)
 
 
-# Main pipeline row
-box(0.15, 5.9, 2.15, 1.30, "Industrial sensor streams\n1 Hz telemetry", fc="#eafaf1", ec="#1e8449", fs=11, bold=True)
-box(2.65, 5.9, 2.15, 1.30, "Preprocessing\nimpute, diff, windows", fc="#eafaf1", ec="#1e8449", fs=11)
-box(5.15, 5.9, 1.85, 1.30, "LSTM 1\n64 units", fc="#fef9e7", ec="#b7950b", fs=11)
-box(7.35, 5.9, 1.85, 1.30, "LSTM 2\n32 units", fc="#fef9e7", ec="#b7950b", fs=11)
-box(9.55, 5.9, 2.15, 1.30, "Sigmoid attention\ntau = 0.5, normalized", fc="#fdedec", ec="#cb4335", fs=11, bold=True)
-box(12.05, 5.9, 1.80, 1.30, "Context + MC-Dropout", fc="#f4ecf7", ec="#7d3c98", fs=11)
+box(0.25, 5.65, 2.05, 1.05, "Industrial sensor\nsequence", "#E9F4EF", "#3D7C62", bold=True)
+box(2.65, 5.65, 2.15, 1.05, "Unit-aware preprocessing\nand sliding windows", "#E9F4EF", "#3D7C62")
+box(5.15, 5.65, 2.05, 1.05, "Two-layer LSTM\nsequence encoder", "#F7F1DE", "#9B7A22", bold=True)
+box(7.65, 6.15, 2.25, 0.95, "Normalized Sigmoid\ntemporal attention", "#F8EAE6", "#B85C4A")
+box(
+    7.65,
+    4.95,
+    2.25,
+    0.95,
+    "Terminal hidden state\n(no attention)",
+    "#EEF1F4",
+    "#68737D",
+    wrap_width=28,
+)
+box(10.35, 5.65, 1.75, 1.05, "Dense head and\noptional dropout", "#EEEAF6", "#735C93")
+box(12.5, 5.65, 1.65, 1.05, "Fault-state\nprobability", "#F8EEDF", "#A66A28", bold=True)
 
-# Second row
-box(2.20, 3.45, 2.15, 1.30, "Dense 16\nReLU + dropout", fc="#f4ecf7", ec="#7d3c98", fs=11)
-box(4.70, 3.45, 2.15, 1.30, "Fault probability\nSigmoid output", fc="#fdebd0", ec="#ca6f1e", fs=11, bold=True)
-box(7.25, 3.45, 2.75, 1.30, "MC uncertainty\nmean +/- std, K = 50", fc="#ebf5fb", ec="#2874a6", fs=11)
-box(10.35, 3.45, 3.20, 1.30, "Attention + SHAP\nwhen and why", fc="#fdf2e9", ec="#d35400", fs=11)
+box(
+    3.0,
+    2.55,
+    3.0,
+    1.05,
+    "Validation-only mode and\noperating-threshold selection",
+    "#E8F0F6",
+    "#477A9B",
+    bold=True,
+    wrap_width=32,
+)
+box(6.45, 2.55, 2.25, 1.05, "Optional MC inference\nmean and dispersion", "#E8F0F6", "#477A9B")
+box(9.15, 2.55, 2.25, 1.05, "Validation-selected\nfault-state decision", "#F8EEDF", "#A66A28")
+box(11.85, 2.55, 2.25, 1.05, "Optional temporal\nattribution", "#F8EAE6", "#B85C4A")
 
-# Bottom row
-box(0.30, 0.85, 5.60, 1.55, "Edge profile\n56k params, 0.022 ms CPU,\n1.1 ms MC50", fc="#e8f8f5", ec="#148f77", fs=11, bold=True)
-box(6.30, 0.85, 7.20, 1.55, "Evaluation\n5 seeds, AUROC / AUPRC / F2 / Brier / ECE\nUR3, C-MAPSS FD001/FD003, XJTU-SY", fc="#fef5e7", ec="#af601a", fs=11)
+box(
+    1.2,
+    0.25,
+    12.0,
+    1.05,
+    "Task-aligned evidence: gradual degradation and cross-bearing stress testing\nPhysical-unit inference, auxiliary event recognition, and deployment reference",
+    "#F4F5F6",
+    "#8A9299",
+    fontsize=6.4,
+    wrap_width=95,
+)
 
-# Pipeline arrows
-arrow(2.30, 6.55, 2.65, 6.55)
-arrow(4.80, 6.55, 5.15, 6.55)
-arrow(7.00, 6.55, 7.35, 6.55)
-arrow(9.20, 6.55, 9.55, 6.55)
-arrow(11.70, 6.55, 12.05, 6.55)
+arrow(2.30, 6.18, 2.65, 6.18)
+arrow(4.80, 6.18, 5.15, 6.18)
+arrow(7.20, 6.18, 7.65, 6.63)
+arrow(7.20, 6.18, 7.65, 5.43)
+arrow(9.90, 6.63, 10.35, 6.18)
+arrow(9.90, 5.43, 10.35, 6.18)
+arrow(12.10, 6.18, 12.50, 6.18)
 
-# Context down to Dense (elbow)
-line(12.95, 5.90, 12.95, 4.90)
-line(12.95, 4.90, 3.25, 4.90)
-arrow(3.25, 4.90, 3.25, 4.75)
+line(4.50, 5.65, 4.50, 3.85)
+arrow(4.50, 3.85, 4.50, 3.60)
+line(13.32, 5.65, 13.32, 4.15)
+line(13.32, 4.15, 7.58, 4.15)
+arrow(7.58, 4.15, 7.58, 3.60)
+line(13.32, 4.15, 10.28, 4.15)
+arrow(10.28, 4.15, 10.28, 3.60)
+line(9.90, 6.63, 10.08, 6.63, style="--")
+line(10.08, 6.63, 10.08, 3.90, style="--")
+line(10.08, 3.90, 12.98, 3.90, style="--")
+arrow(12.98, 3.90, 12.98, 3.60, style="--")
+arrow(6.00, 3.08, 6.45, 3.08)
+arrow(8.70, 3.08, 9.15, 3.08)
 
-# Dense to Output
-arrow(4.35, 4.10, 4.70, 4.10)
+ax.text(7.72, 7.28, "optional", fontsize=6, color="#B85C4A")
+ax.text(7.72, 4.72, "fallback", fontsize=6, color="#68737D")
+ax.text(11.35, 4.02, "attention enabled", fontsize=5.8, color="#B85C4A")
 
-# Output to uncertainty
-arrow(6.85, 4.10, 7.25, 4.10)
-
-# Attention to explainability
-line(10.65, 5.90, 10.65, 5.15)
-line(10.65, 5.15, 11.95, 5.15)
-arrow(11.95, 5.15, 11.95, 4.75)
-
-# Output and uncertainty down to evaluation
-line(5.75, 3.45, 5.75, 2.45)
-line(5.75, 2.45, 9.90, 2.45)
-arrow(9.90, 2.45, 9.90, 2.40)
-line(8.65, 3.45, 8.65, 2.75)
-arrow(8.65, 2.75, 8.65, 2.40)
-
-# Evaluation to edge profile
-arrow(6.30, 1.60, 5.90, 1.60)
-
-fig.tight_layout()
-fig.savefig("../figures/fig_architecture.pdf", bbox_inches="tight")
-fig.savefig("../figures/fig_architecture.png", dpi=300, bbox_inches="tight")
+fig.tight_layout(pad=0.2)
+fig.savefig(OUTPUT.with_suffix(".pdf"), bbox_inches="tight")
+fig.savefig(OUTPUT.with_suffix(".svg"), bbox_inches="tight")
+fig.savefig(OUTPUT.with_suffix(".png"), dpi=600, bbox_inches="tight")
+fig.savefig(OUTPUT.with_suffix(".tiff"), dpi=600, bbox_inches="tight")
 plt.close(fig)
 print("architecture redrawn")

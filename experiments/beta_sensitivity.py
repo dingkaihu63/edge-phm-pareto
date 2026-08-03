@@ -1,4 +1,4 @@
-"""Beta (false-negative cost) sensitivity on final seed-1 checkpoints."""
+"""False-negative threshold-weight sensitivity on final seed-1 checkpoints."""
 
 from __future__ import annotations
 
@@ -91,12 +91,12 @@ def make_figure() -> None:
             ax.plot(p["beta"], p["fn_rate"], marker="s", ms=3.5, color=color, ls="--", label=f"{model} FN")
         ax.set_xticks(BETAS)
         ax.set_title(DATASET_LABELS[ds])
-        ax.set_xlabel(r"Cost weight $\beta$")
+        ax.set_xlabel(r"Threshold weight $\beta$")
         ax.grid(axis="y", color="#E4E6E8", lw=0.6)
     for ax in axes[:, 0]:
         ax.set_ylabel("Rate")
     axes[0, 0].legend(fontsize=5.5, ncol=2)
-    fig.suptitle(r"Threshold sensitivity to false-negative cost weight $\beta$", fontsize=9)
+    fig.suptitle(r"Sensitivity to false-negative threshold weight $\beta$", fontsize=9)
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     FIGURES.mkdir(parents=True, exist_ok=True)
     fig.savefig(FIGURES / "fig_beta_sensitivity.pdf", bbox_inches="tight")

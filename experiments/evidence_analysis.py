@@ -122,151 +122,15 @@ def _metric_set(y: np.ndarray, p: np.ndarray, threshold: float):
 
 
 def run_unit_bootstrap() -> None:
-    rng = np.random.RandomState(2026)
-    rows: List[Dict[str, object]] = []
-    for ds in DATASETS:
-        data = load_dataset(ds)
-        preds = get_predictions(ds, data)
-        y = np.asarray(data["y_test"])
-        units = np.asarray(data["unit_ids"]["test"])
-        thresholds = {
-            name: calibrate_threshold(data["y_val"], preds[name]["val"])[0]
-            for name in MODEL_SET
-        }
-        unit_ids = np.unique(units)
-        unit_data = []
-        for u in unit_ids:
-            mask = units == u
-            unit_data.append(
-                {
-                    "y": y[mask],
-                    "p": {name: preds[name]["test"][mask] for name in MODEL_SET},
-                }
-            )
-        diffs = {
-            (prop, base, metric): []
-            for prop in PROPOSED_MODELS
-            for base in BASELINES
-            for metric in ("f2", "auc_roc", "auc_pr")
-        }
-        n_iter = 0
-        for _ in range(5000):
-            idx = rng.randint(0, len(unit_ids), size=len(unit_ids))
-            ys = []
-            ps = {name: [] for name in MODEL_SET}
-            for j in idx:
-                ys.append(unit_data[j]["y"])
-                for name in MODEL_SET:
-                    ps[name].append(unit_data[j]["p"][name])
-            ys = np.concatenate(ys)
-            ps = {name: np.concatenate(ps[name]) for name in MODEL_SET}
-            vals = {
-                name: _metric_set(ys, ps[name], thresholds[name]) for name in MODEL_SET
-            }
-            if any(v is None for v in vals.values()):
-                continue
-            for prop in PROPOSED_MODELS:
-                for base in BASELINES:
-                    for metric in ("f2", "auc_roc", "auc_pr"):
-                        diffs[(prop, base, metric)].append(
-                            vals[prop][metric] - vals[base][metric]
-                        )
-            n_iter += 1
-        observed = {
-            name: _metric_set(y, preds[name]["test"], thresholds[name]) for name in MODEL_SET
-        }
-        for (prop, base, metric), values in diffs.items():
-            values = np.asarray(values)
-            rows.append(
-                {
-                    "dataset": ds,
-                    "proposed": prop,
-                    "baseline": base,
-                    "metric": metric,
-                    "proposed_value": observed[prop][metric],
-                    "baseline_value": observed[base][metric],
-                    "diff_mean": float(values.mean()),
-                    "diff_sd": float(values.std(ddof=1)) if len(values) > 1 else float("nan"),
-                    "ci_low": float(np.percentile(values, 2.5)),
-                    "ci_high": float(np.percentile(values, 97.5)),
-                    "ci_includes_zero": bool(
-                        np.percentile(values, 2.5) <= 0 <= np.percentile(values, 97.5)
-                    ),
-                    "n_bootstrap": n_iter,
-                    "n_units": len(unit_ids),
-                }
-            )
-    df = pd.DataFrame(rows)
-    path = RESULTS / "unit_bootstrap_5000.csv"
-    df.to_csv(path, index=False)
-    print(path)
-    print(df[df["metric"] == "f2"].to_string(index=False))
+    from five_seed_bootstrap import main as run_hierarchical_bootstrap
+
+    run_hierarchical_bootstrap()
 
 
 def run_streaming() -> None:
-    rows: List[Dict[str, object]] = []
-    for ds in DATASETS:
-        data = load_dataset(ds)
-        preds = get_predictions(ds, data)
-        y = np.asarray(data["y_test"])
-        units = np.asarray(data["unit_ids"]["test"])
-        for model_name in MODEL_SET:
-            pv = preds[model_name]["val"]
-            p = preds[model_name]["test"]
-            threshold, _ = calibrate_threshold(data["y_val"], pv)
-            for confirm in (1, 2, 3):
-                failures = 0
-                detected = 0
-                false_alarms = 0
-                non_failure = 0
-                leads = []
-                for u in np.unique(units):
-                    mask = units == u
-                    p_seq = p[mask]
-                    y_seq = y[mask]
-                    pos = np.where(y_seq == 1)[0]
-                    alarm = -1
-                    streak = 0
-                    for i in range(len(p_seq)):
-                        if p_seq[i] >= threshold:
-                            streak += 1
-                        else:
-                            streak = 0
-                        if streak >= confirm:
-                            alarm = i
-                            break
-                    if len(pos) > 0:
-                        failures += 1
-                        if alarm >= 0:
-                            detected += 1
-                            leads.append(alarm - int(pos[0]))
-                    else:
-                        non_failure += 1
-                        if alarm >= 0:
-                            false_alarms += 1
-                lead_arr = np.asarray(leads, dtype=float)
-                rows.append(
-                    {
-                        "dataset": ds,
-                        "model": model_name,
-                        "threshold": threshold,
-                        "confirm_windows": confirm,
-                        "failure_units": failures,
-                        "detected_units": detected,
-                        "missed_units": failures - detected,
-                        "detection_rate": detected / max(failures, 1),
-                        "non_failure_units": non_failure,
-                        "false_alarm_units": false_alarms,
-                        "false_alarm_rate": false_alarms / max(non_failure, 1),
-                        "mean_lead": float(np.nanmean(lead_arr)) if len(lead_arr) else float("nan"),
-                        "median_lead": float(np.nanmedian(lead_arr)) if len(lead_arr) else float("nan"),
-                    }
-                )
-    df = pd.DataFrame(rows)
-    path = RESULTS / "streaming_alert.csv"
-    df.to_csv(path, index=False)
-    print(path)
-    print(df.to_string(index=False))
+    from episode_alert_analysis import main as run_episode_alert_analysis
+
+    run_episode_alert_analysis()
 
 
 def _entropy(p: np.ndarray) -> np.ndarray:
