@@ -15,7 +15,9 @@ from sota_baselines import PatchTSTModel, TimesNetModel
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-torch.backends.cudnn.benchmark = True
+DETERMINISTIC = os.environ.get("EDGE_PHM_DETERMINISTIC", "0") == "1"
+torch.backends.cudnn.benchmark = not DETERMINISTIC
+torch.backends.cudnn.deterministic = DETERMINISTIC
 try:
     torch.set_float32_matmul_precision("high")
 except Exception:
@@ -46,6 +48,7 @@ class ProposedModel(nn.Module):
         super().__init__()
         self.attention = attention
         self.mc_dropout = mc_dropout
+        self._force_mc_dropout = False
         self.drop_p1 = dropout_rate if mc_dropout else 0.0
         self.drop_p2 = dropout_rate * 0.5 if mc_dropout else 0.0
         self.attn_temperature = attn_temperature
@@ -80,10 +83,15 @@ class ProposedModel(nn.Module):
         else:
             _, alpha = self._attention(h2)
             c = (h2 * alpha).sum(dim=1)
-        c = F.dropout(c, p=self.drop_p1, training=True)
+        dropout_active = self.training or self._force_mc_dropout
+        c = F.dropout(c, p=self.drop_p1, training=dropout_active)
         d = F.relu(self.dense_hidden(c))
-        d = F.dropout(d, p=self.drop_p2, training=True)
+        d = F.dropout(d, p=self.drop_p2, training=dropout_active)
         return self.output(d)
+
+    def set_mc_dropout(self, enabled: bool) -> None:
+        """Enable stochastic dropout during evaluation-only MC sampling."""
+        self._force_mc_dropout = bool(enabled and self.mc_dropout)
 
     def forward_attention(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         h1, _ = self.lstm1(x)
@@ -242,7 +250,14 @@ def train_model(
 
     pos = int(y_train.sum())
     neg = int(len(y_train) - pos)
-    pw = (max(1.0, neg / max(pos, 1)) if use_class_weight else 1.0) * pos_weight_scale
+    # Balanced sampling already equalizes class exposure. Combining it with
+    # inverse-frequency BCE weights would correct the same imbalance twice.
+    use_weighted_loss = use_class_weight and not balanced_sampling
+    pw = (
+        max(1.0, neg / max(pos, 1)) * pos_weight_scale
+        if use_weighted_loss
+        else 1.0
+    )
     loss_fn = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([pw]).to(DEVICE))
     if balanced_sampling and pos > 0 and neg > 0:
         w = np.where(y_train == 1, 0.5 / pos, 0.5 / neg)
@@ -301,6 +316,8 @@ def train_model(
 @torch.no_grad()
 def predict_proba(model: nn.Module, x: np.ndarray, batch_size: int = 256) -> np.ndarray:
     model.eval()
+    if hasattr(model, "set_mc_dropout"):
+        model.set_mc_dropout(False)
     xt = torch.from_numpy(x).float().to(DEVICE)
     out = []
     for i in range(0, len(xt), batch_size):
@@ -316,13 +333,19 @@ def mc_predict(
     batch_size: int = 256,
 ) -> Tuple[np.ndarray, np.ndarray]:
     model.eval()
+    if hasattr(model, "set_mc_dropout"):
+        model.set_mc_dropout(True)
     xt = torch.from_numpy(x).float().to(DEVICE)
     preds = []
-    for _ in range(samples):
-        out = []
-        for i in range(0, len(xt), batch_size):
-            out.append(torch.sigmoid(model(xt[i:i + batch_size])).squeeze(1))
-        preds.append(torch.cat(out).cpu().numpy())
+    try:
+        for _ in range(samples):
+            out = []
+            for i in range(0, len(xt), batch_size):
+                out.append(torch.sigmoid(model(xt[i:i + batch_size])).squeeze(1))
+            preds.append(torch.cat(out).cpu().numpy())
+    finally:
+        if hasattr(model, "set_mc_dropout"):
+            model.set_mc_dropout(False)
     preds = np.stack(preds, axis=0)
     return preds.mean(axis=0), preds.std(axis=0)
 

@@ -7,6 +7,7 @@ import json
 import os
 import time
 import torch
+from pathlib import Path
 from typing import Dict, List
 
 import numpy as np
@@ -21,6 +22,7 @@ from common_no_tf import (
 )
 from prepare_data import load_cmapss, load_ur3, load_xjtu
 from torch_common import (
+    DETERMINISTIC,
     build_deep_baseline,
     build_model,
     mc_predict,
@@ -43,12 +45,27 @@ def ensure_dirs() -> None:
         os.makedirs(d, exist_ok=True)
 
 
+def find_dataset_dir(filename: str, env_var: str) -> str:
+    configured = os.environ.get(env_var)
+    if configured:
+        if os.path.exists(os.path.join(configured, filename)):
+            return configured
+        raise FileNotFoundError(f"{env_var} does not contain {filename}: {configured}")
+    for root in [Path.cwd(), *Path(__file__).resolve().parents]:
+        if (root / filename).exists():
+            return str(root)
+    raise FileNotFoundError(
+        f"Could not locate {filename}; set {env_var} to its parent directory"
+    )
+
+
 def save_config(seeds: int) -> None:
     cfg = {
         "seeds": seeds,
         "device": str(torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu"),
         "torch_version": torch.__version__,
         "cuda_version": torch.version.cuda,
+        "deterministic_algorithms": DETERMINISTIC,
         "ds_config": DS_CONFIG,
     }
     with open(os.path.join(OUT, "config.json"), "w", encoding="utf-8") as f:
@@ -58,22 +75,35 @@ def save_config(seeds: int) -> None:
 def load_dataset(name: str) -> Dict[str, object]:
     seed_rolling = name.endswith("__rolling")
     clean = name.replace("__rolling", "")
+    window = DS_CONFIG[clean]["window"]
     if clean == "ur3":
-        return load_ur3(r"C:\Users\hu\Desktop\比赛", seed_rolling=seed_rolling)
+        return load_ur3(
+            find_dataset_dir("dataset_02052023.xlsx", "EDGE_PHM_UR3_DIR"),
+            window=window,
+            seed_rolling=seed_rolling,
+        )
     if clean == "cmapss_fd001":
         return load_cmapss(
-            r"E:\datasets\C-MAPSS", fd="FD001", seed_rolling=seed_rolling
+            os.environ["EDGE_PHM_CMAPSS_DIR"],
+            fd="FD001",
+            window=window,
+            seed_rolling=seed_rolling,
         )
     if clean == "cmapss_fd003":
         return load_cmapss(
-            r"E:\datasets\C-MAPSS", fd="FD003", seed_rolling=seed_rolling
+            os.environ["EDGE_PHM_CMAPSS_DIR"],
+            fd="FD003",
+            window=window,
+            seed_rolling=seed_rolling,
         )
     if clean == "xjtu":
         return load_xjtu(
-            r"E:\datasets\XJTU-SY\original",
-            r"E:\datasets\XJTU-SY\xjtu_features_full15.csv",
+            os.environ["EDGE_PHM_XJTU_DIR"],
+            os.environ["EDGE_PHM_XJTU_CACHE"],
+            window=window,
             seed_rolling=seed_rolling,
         )
+
     raise ValueError(clean)
 
 
@@ -90,10 +120,10 @@ ABLATIONS = [
 DEEP_BASELINES = ["lstm", "bilstm", "gru", "transformer", "tcn", "patchtst", "timesnet"]
 
 DS_CONFIG = {
-    "ur3": dict(units1=96, units2=48, dropout=0.10, lr=1e-3, batch=64, balanced=False),
-    "cmapss_fd001": dict(units1=64, units2=32, dropout=0.15, lr=5e-4, batch=128, balanced=False),
-    "cmapss_fd003": dict(units1=64, units2=32, dropout=0.15, lr=5e-4, batch=128, balanced=False),
-    "xjtu": dict(units1=96, units2=48, dropout=0.10, lr=1e-3, batch=64, balanced=True),
+    "ur3": dict(units1=96, units2=48, window=10, dropout=0.10, tau=0.5, lr=1e-3, batch=64, balanced=False, grad_clip=1.0),
+    "cmapss_fd001": dict(units1=64, units2=32, window=30, dropout=0.15, tau=0.5, lr=5e-4, batch=128, balanced=False, grad_clip=0.0),
+    "cmapss_fd003": dict(units1=64, units2=32, window=30, dropout=0.05, tau=0.5, lr=5e-4, batch=128, balanced=False, grad_clip=0.0),
+    "xjtu": dict(units1=96, units2=48, window=20, dropout=0.10, tau=0.25, lr=1e-3, batch=64, balanced=True, grad_clip=0.0),
 }
 
 LITE_CONFIG = {
@@ -158,7 +188,7 @@ def run_one_deep(
     set_seed(seed)
     cfg = DS_CONFIG[ds]
     if build_kwargs.get("lite"):
-        cfg = LITE_CONFIG[ds]
+        cfg = {**cfg, **LITE_CONFIG[ds]}
         build_kwargs = {k: v for k, v in build_kwargs.items() if k != "lite"}
     model = build_model(
         data["x_train"].shape[1],
@@ -166,6 +196,7 @@ def run_one_deep(
         lstm_units_1=cfg["units1"],
         lstm_units_2=cfg["units2"],
         dropout_rate=cfg["dropout"],
+        attn_temperature=cfg["tau"],
         seed=seed,
         **build_kwargs,
     )
@@ -179,7 +210,8 @@ def run_one_deep(
         lr=cfg["lr"],
         batch_size=cfg["batch"],
         seed=seed,
-        balanced_sampling=cfg.get("balanced", False),
+        balanced_sampling=cfg.get("balanced", False) and use_cw,
+        grad_clip=cfg.get("grad_clip", 0.0),
     )
     if mc:
         p_val, std_val = mc_predict(model, data["x_val"], samples=50)
@@ -225,6 +257,7 @@ def run_baseline_deep(
         batch_size=cfg["batch"],
         seed=seed,
         balanced_sampling=cfg.get("balanced", False),
+        grad_clip=cfg.get("grad_clip", 0.0),
     )
     p_val = predict_proba(model, data["x_val"])
     p_test = predict_proba(model, data["x_test"])
@@ -311,6 +344,22 @@ def aggregate_seeds(df: pd.DataFrame) -> pd.DataFrame:
     return agg
 
 
+def persist_results(rows: List[Dict[str, float]]):
+    seed_df = pd.DataFrame(rows)
+    if os.path.exists(SEEDS_CSV):
+        existing = pd.read_csv(SEEDS_CSV)
+        seed_df = pd.concat([existing, seed_df], ignore_index=True)
+        seed_df = seed_df.drop_duplicates(
+            subset=["dataset", "model", "seed"], keep="last"
+        )
+    seed_df.to_csv(SEEDS_CSV, index=False)
+    overall = aggregate_seeds(seed_df)
+    overall.to_csv(OVERALL_CSV, index=False)
+    save_aggregate_preds()
+    build_ensemble_csv()
+    return seed_df, overall
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--datasets", default="ur3,cmapss_fd001,cmapss_fd003,xjtu")
@@ -379,23 +428,10 @@ def main() -> None:
                     all_rows.extend(run_ml(ds_name, data, seed))
             print(f"  ML done ({time.time()-t_start:.0f}s)", flush=True)
 
-    seed_df = pd.DataFrame(all_rows)
-    if os.path.exists(SEEDS_CSV):
-        existing = pd.read_csv(SEEDS_CSV)
-        seed_df = pd.concat([existing, seed_df], ignore_index=True)
-        key = ["dataset", "model", "seed"]
-        seed_df = seed_df.drop_duplicates(subset=key, keep="last")
-    seed_df.to_csv(SEEDS_CSV, index=False)
-    overall = aggregate_seeds(seed_df)
-    if os.path.exists(OVERALL_CSV):
-        old = pd.read_csv(OVERALL_CSV)
-        old = old[~old[["dataset", "model"]].apply(tuple, axis=1).isin(
-            set(overall[["dataset", "model"]].apply(tuple, axis=1))
-        )]
-        overall = pd.concat([old, overall], ignore_index=True)
-    overall.to_csv(OVERALL_CSV, index=False)
-    save_aggregate_preds()
-    build_ensemble_csv()
+        # Checkpoint after every dataset so long multi-dataset runs are resumable.
+        persist_results(all_rows)
+
+    seed_df, overall = persist_results(all_rows)
     print(f"\nSaved {len(seed_df)} seed rows and {len(overall)} aggregated rows")
     print(
         overall.groupby(["dataset", "family"])[["f2", "auc_roc", "auc_pr"]]

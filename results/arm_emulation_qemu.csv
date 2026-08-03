@@ -1,0 +1,9 @@
+single_ms,mc50_ms_est,dataset,model,backend,cpu_model
+4.739408299997194,236.9704149998597,ur3,full,qemu-aarch64-user,max
+1.8644020400006411,93.22010200003206,ur3,proposed_lite,qemu-aarch64-user,max
+6.232186580000416,311.6093290000208,cmapss_fd001,full,qemu-aarch64-user,max
+2.411648580000474,120.5824290000237,cmapss_fd001,proposed_lite,qemu-aarch64-user,max
+6.085456539999541,304.27282699997704,cmapss_fd003,full,qemu-aarch64-user,max
+2.409845699999096,120.49228499995479,cmapss_fd003,proposed_lite,qemu-aarch64-user,max
+8.304252020002423,415.21260100012114,xjtu,full,qemu-aarch64-user,max
+2.9969945599987113,149.84972799993557,xjtu,proposed_lite,qemu-aarch64-user,max

@@ -1,0 +1,5 @@
+dataset,selected_modes,selected_count,mean_test_f2,min_test_f2,max_test_f2
+cmapss_fd001,w/o_attention+proposed_lite,"{'w/o_attention': 4, 'proposed_lite': 1}",0.8522329300184872,0.8374792703150912,0.8711691259931895
+cmapss_fd003,w/o_attention,{'w/o_attention': 5},0.9023543534303491,0.891858297078931,0.9079365079365079
+ur3,lite_w_o_mc_dropout+proposed_lite+full,"{'proposed_lite': 2, 'full': 2, 'lite_w_o_mc_dropout': 1}",0.7292116774471202,0.7064650677789364,0.7484154071184788
+xjtu,w/o_attention+lite_w_o_attention+lite_w_o_mc_dropout,"{'lite_w_o_attention': 2, 'lite_w_o_mc_dropout': 2, 'w/o_attention': 1}",0.5697111324724209,0.5320247933884298,0.6124497991967871

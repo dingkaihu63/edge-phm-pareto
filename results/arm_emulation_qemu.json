@@ -1,0 +1,66 @@
+[
+  {
+    "single_ms": 4.739408299997194,
+    "mc50_ms_est": 236.9704149998597,
+    "dataset": "ur3",
+    "model": "full",
+    "backend": "qemu-aarch64-user",
+    "cpu_model": "max"
+  },
+  {
+    "single_ms": 1.8644020400006411,
+    "mc50_ms_est": 93.22010200003206,
+    "dataset": "ur3",
+    "model": "proposed_lite",
+    "backend": "qemu-aarch64-user",
+    "cpu_model": "max"
+  },
+  {
+    "single_ms": 6.232186580000416,
+    "mc50_ms_est": 311.6093290000208,
+    "dataset": "cmapss_fd001",
+    "model": "full",
+    "backend": "qemu-aarch64-user",
+    "cpu_model": "max"
+  },
+  {
+    "single_ms": 2.411648580000474,
+    "mc50_ms_est": 120.5824290000237,
+    "dataset": "cmapss_fd001",
+    "model": "proposed_lite",
+    "backend": "qemu-aarch64-user",
+    "cpu_model": "max"
+  },
+  {
+    "single_ms": 6.085456539999541,
+    "mc50_ms_est": 304.27282699997704,
+    "dataset": "cmapss_fd003",
+    "model": "full",
+    "backend": "qemu-aarch64-user",
+    "cpu_model": "max"
+  },
+  {
+    "single_ms": 2.409845699999096,
+    "mc50_ms_est": 120.49228499995479,
+    "dataset": "cmapss_fd003",
+    "model": "proposed_lite",
+    "backend": "qemu-aarch64-user",
+    "cpu_model": "max"
+  },
+  {
+    "single_ms": 8.304252020002423,
+    "mc50_ms_est": 415.21260100012114,
+    "dataset": "xjtu",
+    "model": "full",
+    "backend": "qemu-aarch64-user",
+    "cpu_model": "max"
+  },
+  {
+    "single_ms": 2.9969945599987113,
+    "mc50_ms_est": 149.84972799993557,
+    "dataset": "xjtu",
+    "model": "proposed_lite",
+    "backend": "qemu-aarch64-user",
+    "cpu_model": "max"
+  }
+]

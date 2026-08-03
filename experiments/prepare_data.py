@@ -68,7 +68,8 @@ def load_ur3(
         "val": cycle_order[tr_end:va_end],
         "test": cycle_order[va_end:],
     }
-    medians = df[sensor_cols].median()
+    train_rows = df["cycle"].isin(cycle_splits["train"])
+    medians = df.loc[train_rows, sensor_cols].median()
     empty = pd.DataFrame(columns=sensor_cols)
 
     all_x, all_y = {"train": [], "val": [], "test": []}, {"train": [], "val": [], "test": []}

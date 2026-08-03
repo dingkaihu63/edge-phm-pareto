@@ -6,7 +6,7 @@ import os
 import sys
 import time
 
-PKG = r"E:\edge_phm_python_packages"
+PKG = os.environ.get("EDGE_PHM_PYTHON_PACKAGES", "")
 if PKG not in sys.path:
     sys.path.insert(0, PKG)
 
@@ -20,7 +20,7 @@ from torch_common import ProposedModel
 ROOT = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(ROOT, "..", "results")
 MODELS = os.path.join(OUT, "models_torch")
-ONNX_DIR = r"E:\edge_phm_onnx"
+ONNX_DIR = os.environ.get("EDGE_PHM_ONNX_DIR", "")
 os.makedirs(ONNX_DIR, exist_ok=True)
 
 SHAPES = {
